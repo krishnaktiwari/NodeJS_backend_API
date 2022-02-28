@@ -7,6 +7,16 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const express = require("express");
 
+// added by sampath
+const mongoose = require("mongoose")
+const crypto = require("crypto")
+const multer = require("multer")
+const path = require("path")
+const {GridFsStorage} = require("multer-gridfs-storage")
+const Grid = require("gridfs-stream")
+// above added by sampath
+
+
 const app = express();
 
 const User = require("./model/user");
@@ -69,6 +79,52 @@ app.get("/user", auth, async function (req, res) {
 		res.send({ error: true, message: err.message });
 	}
 });
+
+
+
+// added by sampath
+const mongoURI = process.env.MONGO_URI
+const conn = mongoose.createConnection(mongoURI);
+
+// Init gfs
+let gfs;
+
+conn.once('open', () => {
+  // Init stream
+  gfs = Grid(conn.db, mongoose.mongo);
+  gfs.collection('uploads');
+});
+
+// Create storage engine
+const storage = new GridFsStorage({
+    url: mongoURI,
+    file: (req, file) => {
+      return new Promise((resolve, reject) => {
+        crypto.randomBytes(16, (err, buf) => {
+          if (err) {
+            return reject(err);
+          }
+          const filename = buf.toString('hex') + path.extname(file.originalname)
+          const fileInfo = {
+            filename: filename,
+            bucketName: 'uploads'
+          };
+          resolve(fileInfo);
+        });
+      });
+    }
+  });
+const upload = multer({ storage });
+// uploading images
+app.post("/",upload.single("img"),(req,res)=>{
+    res.json({file:req.file})
+})
+
+// above added by sampath
+
+
+
+
 
 app.post("/user/create", async function (req, res) {
 	try {
